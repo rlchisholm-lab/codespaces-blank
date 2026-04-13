@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Last Gunslinger - Multiplayer</title>
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+            background: #1a1a1a;
+            font-family: 'Arial Black', Arial, sans-serif;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        #lobbyScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            flex-direction: column;
+            gap: 30px;
+        }
+
+        #lobbyScreen.hidden {
+            display: none;
+        }
+
+        .lobby-content {
+            text-align: center;
+            color: white;
+        }
+
+        .lobby-content h1 {
+            font-size: 50px;
+            color: #FFD700;
+            margin-bottom: 30px;
+            text-shadow: 0 0 20px rgba(255,215,0,0.5);
+        }
+
+        .lobby-content p {
+            font-size: 18px;
+            margin: 10px 0;
+            color: #ccc;
+        }
+
+        .form-group {
+            margin: 20px 0;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        input, select {
+            padding: 12px;
+            font-size: 16px;
+            border: 2px solid #FFD700;
+            background: rgba(0,0,0,0.5);
+            color: #FFD700;
+            border-radius: 5px;
+            width: 300px;
+        }
+
+        input::placeholder {
+            color: #666;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            box-shadow: 0 0 10px rgba(255,215,0,0.5);
+        }
+
+        button {
+            padding: 15px 40px;
+            font-size: 18px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #FFD700;
+            border: 2px solid #FFD700;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 0 20px rgba(255,215,0,0.3);
+        }
+
+        #statusText {
+            color: #FFD700;
+            font-size: 14px;
+            height: 20px;
+        }
+
+        #ui {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            color: #FFD700;
+            font-size: 16px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+            z-index: 100;
+        }
+
+        .ui-item {
+            margin: 8px 0;
+            background: rgba(0,0,0,0.6);
+            padding: 8px 15px;
+            border-left: 3px solid #FFD700;
+        }
+
+        #playerList {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.7);
+            color: #FFD700;
+            padding: 15px;
+            border: 2px solid #FFD700;
+            border-radius: 5px;
+            z-index: 100;
+            font-size: 14px;
+            max-width: 250px;
+        }
+
+        .player-item {
+            padding: 5px 0;
+            border-bottom: 1px solid #FFD700;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .player-item:last-child {
+            border-bottom: none;
+        }
+
+        .player-name {
+            color: #FFD700;
+            flex: 1;
+        }
+
+        .player-health {
+            color: #FF6B6B;
+            margin-left: 10px;
+            font-size: 12px;
+        }
+
+        #chat {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.8);
+            color: #FFD700;
+            border: 2px solid #FFD700;
+            border-radius: 5px;
+            width: 350px;
+            max-height: 200px;
+            z-index: 100;
+        }
+
+        #chatMessages {
+            height: 130px;
+            overflow-y: auto;
+            padding: 10px;
+            font-size: 12px;
+            border-bottom: 1px solid #FFD700;
+        }
+
+        .chat-message {
+            margin: 5px 0;
+            color: #ccc;
+        }
+
+        .chat-message .name {
+            color: #FFD700;
+            font-weight: bold;
+        }
+
+        #chatInput {
+            width: 100%;
+            padding: 8px;
+            border: none;
+            background: rgba(255,215,0,0.1);
+            color: #FFD700;
+            border-top: 1px solid #FFD700;
+        }
+
+        #chatInput::placeholder {
+            color: #666;
+        }
+
+        #crosshair {
+            position: fixed;
+            width: 30px;
+            height: 30px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 200;
+        }
+
+        .crosshair-line {
+            position: absolute;
+            background: #FFD700;
+            opacity: 0.7;
+        }
+
+        .crosshair-h {
+            width: 15px;
+            height: 2px;
+            top: 14px;
+            left: 0;
+        }
+
+        .crosshair-v {
+            width: 2px;
+            height: 15px;
+            left: 14px;
+            top: 0;
+        }
+
+        .crosshair-center {
+            width: 6px;
+            height: 6px;
+            background: #FFD700;
+            border-radius: 50%;
+            top: 12px;
+            left: 12px;
+        }
+
+        .connection-status {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            padding: 10px 15px;
+            background: rgba(0,0,0,0.7);
+            color: #FFD700;
+            border-radius: 5px;
+            font-size: 12px;
+            border: 2px solid #FFD700;
+        }
+
+        .connection-status.connected {
+            border-color: #00FF00;
+            color: #00FF00;
+        }
+
+        .connection-status.disconnected {
+            border-color: #FF0000;
+            color: #FF0000;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <div class="connection-status" id="connectionStatus">🔴 Connecting...</div>
+
+    <div id="lobbyScreen">
+        <div class="lobby-content">
+            <h1>🤠 THE LAST GUNSLINGER</h1>
+            <p style="color: #FFD700; font-size: 20px; margin-bottom: 30px;">Multiplayer Edition</p>
+            
+            <div class="form-group">
+                <input type="text" id="playerName" placeholder="Enter your name" maxlength="20">
+            </div>
+
+            <div class="form-group">
+                <input type="text" id="roomId" placeholder="Room ID (optional - random if empty)">
+            </div>
+
+            <div class="form-group">
+                <select id="difficulty">
+                    <option value="easy">Easy</option>
+                    <option value="normal" selected>Normal</option>
+                    <option value="hard">Hard</option>
+                </select>
+            </div>
+
+            <button onclick="joinGame()">🎮 JOIN GAME</button>
+            <button onclick="goToMenu()" style="margin-top: 10px;">← BACK TO MENU</button>
+
+            <p id="statusText"></p>
+        </div>
+    </div>
+
+    <div id="ui" style="display:none;">
+        <div class="ui-item">❤️ Health: <span id="healthValue">100</span>/100</div>
+        <div class="ui-item">💥 Ammo: <span id="ammoValue">30</span>/30</div>
+        <div class="ui-item">⭐ Score: <span id="scoreValue">0</span></div>
+        <div class="ui-item">👥 Players: <span id="playerCount">1</span></div>
+    </div>
+
+    <div id="playerList" style="display:none;">
+        <div style="margin-bottom: 10px; font-weight: bold;">🎯 PLAYERS</div>
+        <div id="playerListContent"></div>
+    </div>
+
+    <div id="chat" style="display:none;">
+        <div id="chatMessages"></div>
+        <input type="text" id="chatInput" placeholder="Type message... (Enter to send)">
+    </div>
+
+    <div id="crosshair" style="display:none;">
+        <div class="crosshair-line crosshair-h"></div>
+        <div class="crosshair-line crosshair-v"></div>
+        <div class="crosshair-line crosshair-center"></div>
+    </div>
+
+    <script>
+        // ==================== GAME STATE ====================
+        let socket;
+        let playerId;
+        let playerName;
+        let roomId;
+        let localPlayers = {};
+        let remotePlayerMeshes = {};
+
+        const gameState = {
+            health: 100,
+            maxHealth: 100,
+            ammo: 30,
+            maxAmmo: 30,
+            score: 0,
+            wave: 1,
+            gameStarted: false
+        };
+
+        // ==================== BABYLON.JS SETUP ====================
+        const canvas = document.getElementById('renderCanvas');
+        const engine = new BABYLON.Engine(canvas, true);
+        let scene, camera, light;
+
+        function createScene() {
+            scene = new BABYLON.Scene(engine);
+            scene.collisionsEnabled = true;
+            
+            camera = new BABYLON.UniversalCamera('camera1', new BABYLON.Vector3(0, 1.8, 0));
+            camera.attachControl(canvas, true);
+            camera.speed = 0;
+            camera.angularSensibility = 100;
+            camera.collisionRadius = new BABYLON.Vector3(0.5, 0.8, 0.5);
+            camera.checkCollisions = true;
+
+            // Lighting
+            light = new BABYLON.HemisphericLight('light1', new BABYLON.Vector3(0, 1, 1), scene);
+            light.intensity = 0.9;
+
+            const sunLight = new BABYLON.PointLight('sun', new BABYLON.Vector3(50, 50, 50), scene);
+            sunLight.intensity = 0.8;
+
+            // Sky
+            const skybox = BABYLON.MeshBuilder.CreateBox('skyBox', { size: 500 }, scene);
+            const skyMaterial = new BABYLON.StandardMaterial('skyMat', scene);
+            skyMaterial.emissiveColor = new BABYLON.Color3(0.8, 0.85, 0.9);
+            skybox.material = skyMaterial;
+
+            // Ground
+            const ground = BABYLON.MeshBuilder.CreateGround('ground', { width: 200, height: 200 }, scene);
+            const groundMaterial = new BABYLON.StandardMaterial('groundMat', scene);
+            groundMaterial.diffuse = new BABYLON.Color3(0.8, 0.7, 0.5);
+            ground.material = groundMaterial;
+            ground.checkCollisions = true;
+
+            // Create saloon
+            const building = BABYLON.MeshBuilder.CreateBox('saloon', { width: 15, height: 8, depth: 10 }, scene);
+            building.position.z = -30;
+            const buildingMat = new BABYLON.StandardMaterial('buildingMat', scene);
+            buildingMat.diffuse = new BABYLON.Color3(0.6, 0.4, 0.2);
+            building.material = buildingMat;
+            building.checkCollisions = true;
+
+            return scene;
+        }
+
+        // ==================== SOCKET.IO CONNECTION ====================
+        function initSocket() {
+            socket = io();
+
+            socket.on('connect', () => {
+                updateConnectionStatus(true);
+                console.log('Connected to server');
+            });
+
+            socket.on('disconnect', () => {
+                updateConnectionStatus(false);
+                console.log('Disconnected from server');
+            });
+
+            socket.on('joinedRoom', (data) => {
+                playerId = data.playerId;
+                roomId = data.roomId;
+                localPlayers = data.players;
+                gameState.wave = data.wave;
+
+                console.log(`Joined room ${roomId} as ${playerId}`);
+                document.getElementById('lobbyScreen').classList.add('hidden');
+                document.getElementById('ui').style.display = 'block';
+                document.getElementById('playerList').style.display = 'block';
+                document.getElementById('chat').style.display = 'block';
+                document.getElementById('crosshair').style.display = 'block';
+
+                startGame();
+            });
+
+            socket.on('playerJoined', (data) => {
+                localPlayers = data.players;
+                addChatMessage('SYSTEM', `${data.playerName} joined the game`);
+                updatePlayerList();
+            });
+
+            socket.on('playerUpdated', (data) => {
+                updateRemotePlayer(data);
+            });
+
+            socket.on('playerFired', (data) => {
+                visualizeShot(data);
+            });
+
+            socket.on('playerHit', (data) => {
+                if (data.targetId === playerId) {
+                    gameState.health -= data.damage;
+                    updateUI();
+                }
+            });
+
+            socket.on('playerDefeated', (data) => {
+                if (data.defeatedId === playerId) {
+                    addChatMessage('SYSTEM', `Defeated by ${data.killerName}`);
+                } else if (data.killer === playerId) {
+                    gameState.score += 100;
+                    updateUI();
+                }
+            });
+
+            socket.on('playerLeft', (data) => {
+                delete localPlayers[data.playerId];
+                if (remotePlayerMeshes[data.playerId]) {
+                    remotePlayerMeshes[data.playerId].dispose();
+                    delete remotePlayerMeshes[data.playerId];
+                }
+                addChatMessage('SYSTEM', `${data.playerName} left the game`);
+                updatePlayerList();
+            });
+
+            socket.on('chatMessage', (data) => {
+                addChatMessage(data.playerName, data.message);
+            });
+
+            socket.on('roomFull', () => {
+                document.getElementById('statusText').textContent = '❌ Room is full!';
+            });
+        }
+
+        // ==================== GAME FUNCTIONS ====================
+        function joinGame() {
+            playerName = document.getElementById('playerName').value || `Player_${Math.random().toString(36).substr(2, 9)}`;
+            roomId = document.getElementById('roomId').value || `room_${Math.floor(Math.random() * 10000)}`;
+
+            if (playerName.length < 2) {
+                document.getElementById('statusText').textContent = '❌ Name too short!';
+                return;
+            }
+
+            socket.emit('joinGame', {
+                playerName: playerName,
+                roomId: roomId
+            });
+
+            document.getElementById('statusText').textContent = '🔄 Joining game...';
+        }
+
+        function startGame() {
+            socket.emit('startGame', {});
+            engine.runRenderLoop(gameLoop);
+        }
+
+        function gameLoop() {
+            scene.render();
+            updatePlayerMovement();
+            updatePlayerList();
+        }
+
+        function updatePlayerMovement() {
+            const keys = {};
+            document.addEventListener('keydown', (e) => keys[e.key.toLowerCase()] = true);
+            document.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
+
+            const speed = 0.2;
+            const moveVector = BABYLON.Vector3.Zero();
+
+            if (keys['arrowup'] || keys['w']) moveVector.z += speed;
+            if (keys['arrowdown'] || keys['s']) moveVector.z -= speed;
+            if (keys['arrowleft'] || keys['a']) moveVector.x -= speed;
+            if (keys['arrowright'] || keys['d']) moveVector.x += speed;
+
+            const forward = BABYLON.Vector3.TransformCoordinates(
+                moveVector,
+                BABYLON.Matrix.RotationY(camera.rotation.y)
+            );
+            camera.position.addInPlace(forward);
+
+            // Send position to server
+            socket.emit('updatePlayer', {
+                position: camera.position,
+                rotation: camera.rotation,
+                health: gameState.health,
+                ammo: gameState.ammo
+            });
+        }
+
+        function updateRemotePlayer(data) {
+            if (!remotePlayerMeshes[data.playerId]) {
+                createRemotePlayerMesh(data.playerId);
+            }
+
+            const mesh = remotePlayerMeshes[data.playerId];
+            mesh.position = new BABYLON.Vector3(data.position.x, data.position.y, data.position.z);
+        }
+
+        function createRemotePlayerMesh(playerId) {
+            const mesh = BABYLON.MeshBuilder.CreateBox(`player_${playerId}`, { width: 1, height: 2, depth: 1 }, scene);
+            const material = new BABYLON.StandardMaterial(`playerMat_${playerId}`, scene);
+            material.diffuse = new BABYLON.Color3(Math.random(), Math.random(), Math.random());
+            mesh.material = material;
+            remotePlayerMeshes[playerId] = mesh;
+        }
+
+        function visualizeShot(data) {
+            // Visual effect for shots
+            console.log(`${data.playerId} fired`);
+        }
+
+        function updatePlayerList() {
+            const listContent = document.getElementById('playerListContent');
+            listContent.innerHTML = '';
+
+            for (let pId in localPlayers) {
+                const player = localPlayers[pId];
+                const isLocal = pId === playerId ? ' (YOU)' : '';
+                const item = document.createElement('div');
+                item.className = 'player-item';
+                item.innerHTML = `
+                    <span class="player-name">${player.name}${isLocal}</span>
+                    <span class="player-health">❤️ ${player.health}</span>
+                `;
+                listContent.appendChild(item);
+            }
+        }
+
+        function addChatMessage(name, message) {
+            const chatMessages = document.getElementById('chatMessages');
+            const messageEl = document.createElement('div');
+            messageEl.className = 'chat-message';
+            messageEl.innerHTML = `<span class="name">${name}:</span> ${message}`;
+            chatMessages.appendChild(messageEl);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function updateUI() {
+            document.getElementById('healthValue').textContent = Math.max(0, gameState.health);
+            document.getElementById('ammoValue').textContent = gameState.ammo;
+            document.getElementById('scoreValue').textContent = gameState.score;
+            document.getElementById('playerCount').textContent = Object.keys(localPlayers).length;
+        }
+
+        function updateConnectionStatus(connected) {
+            const status = document.getElementById('connectionStatus');
+            if (connected) {
+                status.textContent = '🟢 Connected';
+                status.className = 'connection-status connected';
+            } else {
+                status.textContent = '🔴 Disconnected';
+                status.className = 'connection-status disconnected';
+            }
+        }
+
+        function goToMenu() {
+            window.location.href = 'index.html';
+        }
+
+        // ==================== CHAT INPUT ====================
+        document.addEventListener('DOMContentLoaded', () => {
+            const chatInput = document.getElementById('chatInput');
+            chatInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && chatInput.value.trim()) {
+                    socket.emit('chatMessage', { message: chatInput.value });
+                    chatInput.value = '';
+                }
+            });
+
+            createScene();
+            initSocket();
+        });
+
+        // ==================== MOUSE CLICK TO SHOOT ====================
+        canvas.addEventListener('click', () => {
+            if (gameState.ammo > 0) {
+                gameState.ammo--;
+                socket.emit('playerShot', {
+                    position: camera.position,
+                    direction: camera.direction
+                });
+                updateUI();
+            }
+        });
+    </script>
+</body>
+</html>

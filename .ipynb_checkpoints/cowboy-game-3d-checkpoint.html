@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Last Gunslinger - A Cowboy Story</title>
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/cannon.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+            background: #1a1a1a;
+            font-family: 'Arial Black', Arial, sans-serif;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        #ui {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            color: #FFD700;
+            font-size: 18px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+            z-index: 100;
+        }
+
+        .ui-item {
+            margin: 10px 0;
+            background: rgba(0,0,0,0.6);
+            padding: 8px 15px;
+            border-left: 3px solid #FFD700;
+        }
+
+        #crosshair {
+            position: fixed;
+            width: 30px;
+            height: 30px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 200;
+        }
+
+        .crosshair-line {
+            position: absolute;
+            background: #FFD700;
+            opacity: 0.7;
+        }
+
+        .crosshair-h {
+            width: 15px;
+            height: 2px;
+            top: 14px;
+            left: 0;
+        }
+
+        .crosshair-v {
+            width: 2px;
+            height: 15px;
+            left: 14px;
+            top: 0;
+        }
+
+        .crosshair-center {
+            width: 6px;
+            height: 6px;
+            background: #FFD700;
+            border-radius: 50%;
+            top: 12px;
+            left: 12px;
+        }
+
+        #hudInterface {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            color: #FFD700;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+            text-align: right;
+            z-index: 100;
+        }
+
+        .hud-item {
+            margin: 10px 0;
+            background: rgba(0,0,0,0.6);
+            padding: 8px 15px;
+            border-right: 3px solid #FFD700;
+            font-size: 16px;
+        }
+
+        #cutsceneScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            display: none;
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            color: white;
+        }
+
+        #cutsceneScreen.show {
+            display: flex;
+        }
+
+        .cutscene-text {
+            font-size: 32px;
+            text-align: center;
+            max-width: 800px;
+            margin: 20px;
+            line-height: 1.6;
+            animation: fadeIn 0.8s ease-in;
+        }
+
+        .cutscene-narrator {
+            color: #FFD700;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        #gameOverScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.95);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 1000;
+            gap: 30px;
+        }
+
+        #gameOverScreen.show {
+            display: flex;
+        }
+
+        #gameOverScreen h1 {
+            color: #FF6B6B;
+            font-size: 80px;
+            text-shadow: 0 0 20px rgba(255,107,107,0.5);
+        }
+
+        #gameOverScreen p {
+            color: #FFD700;
+            font-size: 28px;
+        }
+
+        #gameOverScreen button {
+            padding: 20px 60px;
+            font-size: 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: 2px solid #FFD700;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        #gameOverScreen button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(255,215,0,0.5);
+        }
+
+        #missionObjective {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9);
+            color: #FFD700;
+            padding: 40px;
+            border: 3px solid #FFD700;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 24px;
+            display: none;
+            z-index: 100;
+            animation: slideIn 0.5s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translate(-50%, -60%);
+                opacity: 0;
+            }
+            to {
+                transform: translate(-50%, -50%);
+                opacity: 1;
+            }
+        }
+
+        #waveNotification {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9);
+            color: #FF6B6B;
+            padding: 40px;
+            border: 3px solid #FF6B6B;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 48px;
+            font-weight: bold;
+            display: none;
+            z-index: 100;
+            animation: pulse 0.6s ease-out;
+            text-shadow: 0 0 20px rgba(255,107,107,0.5);
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: translate(-50%, -50%) scale(0.5);
+                opacity: 0;
+            }
+            50% {
+                transform: translate(-50%, -50%) scale(1.1);
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 1;
+            }
+        }
+
+        #instructions {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.7);
+            color: #FFD700;
+            padding: 15px;
+            border-left: 3px solid #FFD700;
+            font-size: 12px;
+            max-width: 300px;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="renderCanvas"></canvas>
+    
+    <div id="ui">
+        <div class="ui-item">❤️ Health: <span id="healthValue">100</span>/100</div>
+        <div class="ui-item">💥 Ammo: <span id="ammoValue">30</span>/30</div>
+        <div class="ui-item">👾 Enemies: <span id="enemyCount">0</span></div>
+        <div class="ui-item">⭐ Score: <span id="scoreValue">0</span></div>
+        <div class="ui-item">🎯 Wave: <span id="waveValue">1</span></div>
+    </div>
+
+    <div id="crosshair">
+        <div class="crosshair-line crosshair-h"></div>
+        <div class="crosshair-line crosshair-v"></div>
+        <div class="crosshair-line crosshair-center"></div>
+    </div>
+
+    <div id="hudInterface">
+        <div class="hud-item">MISSION: <span id="missionName">Defend the Town</span></div>
+        <div class="hud-item">LEVEL: <span id="levelName">Act 1</span></div>
+    </div>
+
+    <div id="missionObjective"></div>
+    <div id="waveNotification"></div>
+
+    <div id="cutsceneScreen">
+        <div class="cutscene-text" id="cutsceneText"></div>
+    </div>
+
+    <div id="gameOverScreen">
+        <h1 id="gameOverTitle">MISSION FAILED</h1>
+        <p id="gameOverStats">Score: 0 | Wave: 1</p>
+        <button onclick="location.reload()">🔄 Restart Game</button>
+    </div>
+
+    <div id="instructions">
+        <strong>⌨️ CONTROLS:</strong><br>
+        🖱️ MOUSE: Aim & Look<br>
+        ⬆️⬇️⬅️➡️ or WASD: Move<br>
+        🖱️ LEFT CLICK: Shoot<br>
+        SPACE: Reload<br>
+        ESC: Pause (coming soon)
+    </div>
+
+    <script>
+        // ==================== GAME STATE ====================
+        const gameState = {
+            health: 100,
+            maxHealth: 100,
+            ammo: 30,
+            maxAmmo: 30,
+            score: 0,
+            wave: 1,
+            level: 1,
+            gameOver: false,
+            isPaused: false,
+            isInCutscene: false,
+            enemiesKilled: 0,
+            waveEnemiesKilled: 0
+        };
+
+        // ==================== BABYLON.JS SETUP ====================
+        const canvas = document.getElementById('renderCanvas');
+        const engine = new BABYLON.Engine(canvas, true);
+        let scene, camera, light;
+        let player, enemies = [], bullets = [];
+        let ground;
+
+        function createScene() {
+            scene = new BABYLON.Scene(engine);
+            scene.collisionsEnabled = true;
+            scene.gravity = new BABYLON.Vector3(0, -9.81, 0);
+
+            // Camera
+            camera = new BABYLON.UniversalCamera('camera1', new BABYLON.Vector3(0, 1.8, 0));
+            camera.attachControl(canvas, true);
+            camera.speed = 0;
+            camera.angularSensibility = 100;
+            camera.inertia = 0.7;
+            camera.collisionRadius = new BABYLON.Vector3(0.5, 0.8, 0.5);
+            camera.checkCollisions = true;
+
+            // Lighting
+            light = new BABYLON.HemisphericLight('light1', new BABYLON.Vector3(0, 1, 1), scene);
+            light.intensity = 0.9;
+
+            const sunLight = new BABYLON.PointLight('sun', new BABYLON.Vector3(50, 50, 50), scene);
+            sunLight.intensity = 0.8;
+
+            // Sky
+            const skybox = BABYLON.MeshBuilder.CreateBox('skyBox', { size: 500 }, scene);
+            const skyMaterial = new BABYLON.StandardMaterial('skyMat', scene);
+            skyMaterial.emissiveColor = new BABYLON.Color3(0.8, 0.85, 0.9);
+            skybox.material = skyMaterial;
+
+            // Ground
+            ground = BABYLON.MeshBuilder.CreateGround('ground', { width: 200, height: 200 }, scene);
+            const groundMaterial = new BABYLON.StandardMaterial('groundMat', scene);
+            groundMaterial.diffuse = new BABYLON.Color3(0.8, 0.7, 0.5);
+            ground.material = groundMaterial;
+            ground.checkCollisions = true;
+
+            // Create saloon building
+            createSaloon();
+
+            // Create crates
+            createDecorations();
+
+            return scene;
+        }
+
+        function createSaloon() {
+            // Building
+            const building = BABYLON.MeshBuilder.CreateBox('saloon', { width: 15, height: 8, depth: 10 }, scene);
+            building.position.z = -30;
+            const buildingMat = new BABYLON.StandardMaterial('buildingMat', scene);
+            buildingMat.diffuse = new BABYLON.Color3(0.6, 0.4, 0.2);
+            building.material = buildingMat;
+            building.checkCollisions = true;
+
+            // Roof
+            const roof = BABYLON.MeshBuilder.CreateBox('roof', { width: 16, height: 1, depth: 11 }, scene);
+            roof.position = new BABYLON.Vector3(0, 4.5, -30);
+            const roofMat = new BABYLON.StandardMaterial('roofMat', scene);
+            roofMat.diffuse = new BABYLON.Color3(0.4, 0.2, 0.1);
+            roof.material = roofMat;
+            roof.checkCollisions = true;
+        }
+
+        function createDecorations() {
+            for (let i = 0; i < 8; i++) {
+                const crate = BABYLON.MeshBuilder.CreateBox('crate' + i, { width: 2, height: 2, depth: 2 }, scene);
+                crate.position = new BABYLON.Vector3(
+                    20 - Math.random() * 60,
+                    1, 
+                    20 - Math.random() * 40
+                );
+                const crateMat = new BABYLON.StandardMaterial('crateMat' + i, scene);
+                crateMat.diffuse = new BABYLON.Color3(0.5, 0.3, 0.1);
+                crate.material = crateMat;
+                crate.checkCollisions = true;
+            }
+        }
+
+        // ==================== PLAYER CONTROLLER ====================
+        class PlayerController {
+            constructor() {
+                this.moveVector = new BABYLON.Vector3(0, 0, 0);
+                this.keys = {};
+                this.mouseDown = false;
+
+                document.addEventListener('keydown', (e) => {
+                    this.keys[e.key.toLowerCase()] = true;
+                    if (e.key === ' ') this.reload();
+                });
+                document.addEventListener('keyup', (e) => {
+                    this.keys[e.key.toLowerCase()] = false;
+                });
+                canvas.addEventListener('click', () => this.shoot());
+            }
+
+            update() {
+                const speed = 0.2;
+                this.moveVector = BABYLON.Vector3.Zero();
+
+                if (this.keys['arrowup'] || this.keys['w']) this.moveVector.z += speed;
+                if (this.keys['arrowdown'] || this.keys['s']) this.moveVector.z -= speed;
+                if (this.keys['arrowleft'] || this.keys['a']) this.moveVector.x -= speed;
+                if (this.keys['arrowright'] || this.keys['d']) this.moveVector.x += speed;
+
+                const forward = BABYLON.Vector3.TransformCoordinates(
+                    this.moveVector,
+                    BABYLON.Matrix.RotationY(camera.rotation.y)
+                );
+                camera.position.addInPlace(forward);
+            }
+
+            shoot() {
+                if (gameState.ammo <= 0 || gameState.isInCutscene) return;
+
+                gameState.ammo--;
+                document.getElementById('ammoValue').textContent = gameState.ammo;
+
+                const rayOrigin = camera.position.clone();
+                const rayDirection = BABYLON.Vector3.TransformCoordinates(
+                    new BABYLON.Vector3(0, 0, 1),
+                    BABYLON.Matrix.RotationYawPitchRoll(camera.rotation.y, camera.rotation.x, 0)
+                );
+                const rayLength = 200;
+                const ray = new BABYLON.Ray(rayOrigin, rayDirection, rayLength);
+
+                const hit = scene.pickWithRay(ray, (mesh) => {
+                    return mesh.name.startsWith('enemy');
+                });
+
+                if (hit && hit.hit) {
+                    const enemyIndex = enemies.findIndex(e => e.mesh === hit.mesh);
+                    if (enemyIndex !== -1) {
+                        enemies[enemyIndex].health -= 30;
+                        if (enemies[enemyIndex].health <= 0) {
+                            enemies[enemyIndex].mesh.dispose();
+                            enemies.splice(enemyIndex, 1);
+                            gameState.score += 100 * gameState.wave;
+                            gameState.waveEnemiesKilled++;
+                            updateUI();
+                        }
+                    }
+                }
+            }
+
+            reload() {
+                gameState.ammo = gameState.maxAmmo;
+                document.getElementById('ammoValue').textContent = gameState.ammo;
+            }
+        }
+
+        // ==================== ENEMY CLASS ====================
+        class Enemy {
+            constructor(position) {
+                this.mesh = BABYLON.MeshBuilder.CreateBox('enemy' + Math.random(), { width: 1, height: 2, depth: 1 }, scene);
+                this.mesh.position = position;
+                const enemyMat = new BABYLON.StandardMaterial('enemyMat' + Math.random(), scene);
+                enemyMat.diffuse = new BABYLON.Color3(0.3, 0.1, 0.1);
+                this.mesh.material = enemyMat;
+                this.mesh.checkCollisions = true;
+
+                this.health = 30;
+                this.speed = 0.08 + gameState.wave * 0.02;
+                this.shootCooldown = 0;
+            }
+
+            update() {
+                const direction = BABYLON.Vector3.Normalize(
+                    camera.position.subtract(this.mesh.position)
+                );
+                this.mesh.position.addInPlace(
+                    direction.scale(this.speed)
+                );
+
+                this.shootCooldown--;
+                if (this.shootCooldown <= 0 && BABYLON.Vector3.Distance(this.mesh.position, camera.position) < 30) {
+                    this.shootCooldown = 60;
+                    this.shoot();
+                }
+
+                const distance = BABYLON.Vector3.Distance(camera.position, this.mesh.position);
+                if (distance < 2) {
+                    gameState.health -= 2;
+                }
+            }
+
+            shoot() {
+                const direction = BABYLON.Vector3.Normalize(
+                    camera.position.subtract(this.mesh.position)
+                );
+                // Enemy bullets could be tracked separately for collision
+            }
+        }
+
+        // ==================== CUTSCENE SYSTEM ====================
+        const cutscenes = {
+            intro: [
+                { text: "🌅 THE LAST GUNSLINGER", delay: 2 },
+                { text: "My name is Jack Morgan... they call me the Last Gunslinger.", delay: 3 },
+                { text: "I've seen the frontier change. Towns fall. Good men die.", delay: 3 },
+                { text: "But today, the Crimson Outlaws have gone too far...", delay: 3 },
+                { text: "They've declared war on Dusty Gulch.", delay: 3 },
+                { text: "And it ends here. It ends with me.", delay: 3 },
+                { text: "Get ready... they're coming.", delay: 2 }
+            ],
+            wave: [
+                { text: "Here they come!", delay: 2 },
+                { text: "Stay sharp, Morgan!", delay: 2 }
+            ],
+            victory: [
+                { text: "🏆 MISSION COMPLETE!", delay: 2 },
+                { text: "Dusty Gulch is safe... for now.", delay: 3 },
+                { text: "But I know this war isn't over.", delay: 3 },
+                { text: "The Crimson Outlaws will return.", delay: 3 }
+            ]
+        };
+
+        async function playCutscene(scenes) {
+            gameState.isInCutscene = true;
+            const screen = document.getElementById('cutsceneScreen');
+            const text = document.getElementById('cutsceneText');
+            screen.classList.add('show');
+
+            for (const scene of scenes) {
+                text.textContent = scene.text;
+                await new Promise(resolve => setTimeout(resolve, scene.delay * 1000));
+            }
+
+            screen.classList.remove('show');
+            gameState.isInCutscene = false;
+        }
+
+        // ==================== WAVE SYSTEM ====================
+        function startWave() {
+            gameState.waveEnemiesKilled = 0;
+            const enemyCount = 3 + gameState.wave * 2;
+
+            const notification = document.getElementById('waveNotification');
+            notification.textContent = `⚔️ WAVE ${gameState.wave} ⚔️`;
+            notification.style.display = 'block';
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 2000);
+
+            for (let i = 0; i < enemyCount; i++) {
+                const angle = (i / enemyCount) * Math.PI * 2;
+                const distance = 50;
+                const position = new BABYLON.Vector3(
+                    Math.cos(angle) * distance,
+                    1,
+                    Math.sin(angle) * distance + camera.position.z
+                );
+                enemies.push(new Enemy(position));
+            }
+            updateUI();
+        }
+
+        // ==================== UI UPDATES ====================
+        function updateUI() {
+            document.getElementById('healthValue').textContent = Math.max(0, gameState.health);
+            document.getElementById('ammoValue').textContent = gameState.ammo;
+            document.getElementById('enemyCount').textContent = enemies.length;
+            document.getElementById('scoreValue').textContent = gameState.score;
+            document.getElementById('waveValue').textContent = gameState.wave;
+        }
+
+        function showObjective(text) {
+            const obj = document.getElementById('missionObjective');
+            obj.textContent = text;
+            obj.style.display = 'block';
+            setTimeout(() => {
+                obj.style.display = 'none';
+            }, 3000);
+        }
+
+        function endGame(won) {
+            gameState.gameOver = true;
+            const screen = document.getElementById('gameOverScreen');
+            const title = document.getElementById('gameOverTitle');
+            const stats = document.getElementById('gameOverStats');
+
+            if (won) {
+                title.textContent = '🏆 VICTORY!';
+                title.style.color = '#FFD700';
+            } else {
+                title.textContent = '💀 DEFEATED';
+                title.style.color = '#FF6B6B';
+            }
+
+            stats.textContent = `Score: ${gameState.score} | Wave: ${gameState.wave} | Enemies Killed: ${gameState.enemiesKilled}`;
+            screen.classList.add('show');
+        }
+
+        // ==================== MAIN GAME LOOP ====================
+        let playerController;
+
+        function gameLoop() {
+            scene.render();
+
+            if (gameState.gameOver || gameState.isInCutscene) return;
+
+            playerController.update();
+
+            // Update enemies
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                enemies[i].update();
+
+                if (enemies[i].health <= 0) {
+                    enemies[i].mesh.dispose();
+                    enemies.splice(i, 1);
+                }
+            }
+
+            // Check wave completion
+            if (enemies.length === 0 && gameState.waveEnemiesKilled > 0) {
+                gameState.wave++;
+                gameState.health = Math.min(gameState.maxHealth, gameState.health + 15);
+                updateUI();
+                setTimeout(() => startWave(), 2000);
+            }
+
+            // Health check
+            if (gameState.health <= 0) {
+                endGame(false);
+            }
+
+            updateUI();
+        }
+
+        // ==================== INITIALIZE ====================
+        async function init() {
+            createScene();
+            playerController = new PlayerController();
+
+            camera.position = new BABYLON.Vector3(0, 1.8, 0);
+            camera.attachControl(canvas, true);
+
+            // Play intro cutscene
+            await playCutscene(cutscenes.intro);
+            showObjective('Survive the Crimson Outlaw attack!');
+            startWave();
+
+            engine.runRenderLoop(gameLoop);
+            window.addEventListener('resize', () => engine.resize());
+        }
+
+        init();
+    </script>
+</body>
+</html>
